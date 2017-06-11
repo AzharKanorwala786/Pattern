@@ -1,30 +1,66 @@
-﻿using System;
+﻿using AutoMapper;
+using Dto;
+using Presentation.ViewModels;
+using Service.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
 using System.Web.Mvc;
 
 namespace Presentation.Controllers
 {
     public class HomeController : Controller
     {
-        public ActionResult Index()
+        private readonly IProductService _productService;
+        private readonly ICategoryService _categoryService;
+       
+        public HomeController(IProductService _productService,ICategoryService _categoryService)
         {
-            return View();
+            this._productService = _productService;
+            this._categoryService = _categoryService;
         }
 
-        public ActionResult About()
+        // GET: Home
+        public ActionResult Index(string category = null)
         {
-            ViewBag.Message = "Your application description page.";
+            IEnumerable<CategoryViewModel> viewModelProducts;
+            IEnumerable<Category> categories;
 
-            return View();
+            categories = _categoryService.GetCategories(category).ToList();
+
+            viewModelProducts = Mapper.Map<IEnumerable<Category>, IEnumerable<CategoryViewModel>>(categories);
+            return View(viewModelProducts);
         }
 
-        public ActionResult Contact()
+        public ActionResult Filter(string category, string gadgetName)
         {
-            ViewBag.Message = "Your contact page.";
+            IEnumerable<ProductViewModel> viewModelGadgets;
+            IEnumerable<Product> products;
 
-            return View();
+            products = _productService.GetCategoryProducts(category, gadgetName);
+
+            viewModelGadgets = Mapper.Map<IEnumerable<Product>, IEnumerable<ProductViewModel>>(products);
+
+            return View(viewModelGadgets);
         }
+
+        [HttpPost]
+        public ActionResult Create(ProductFormViewModel newProduct)
+        {
+            if (newProduct != null && newProduct.File != null)
+            {
+                var gadget = Mapper.Map<ProductFormViewModel, Product>(newProduct);
+                _productService.CreateProduct(gadget);
+
+                string gadgetPicture = System.IO.Path.GetFileName(newProduct.File.FileName);
+                string path = System.IO.Path.Combine(Server.MapPath("~/images/"), gadgetPicture);
+                newProduct.File.SaveAs(path);
+
+                _productService.SaveProduct();
+            }
+
+            var category = _categoryService.GetCategory(newProduct.ProductCategory);
+            return RedirectToAction("Index", new { category = category.Name });
+        }
+
     }
 }
